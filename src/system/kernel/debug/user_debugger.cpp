@@ -813,6 +813,9 @@ static status_t
 thread_hit_serious_debug_event(debug_debugger_message event,
 	const void *message, int32 messageSize)
 {
+#if 1 && defined(__riscv)
+	panic("thread_hit_serious_debug_event");
+#endif
 	// ensure that a debugger is installed for this team
 	status_t error = ensure_debugger_installed();
 	if (error != B_OK) {
