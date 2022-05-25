@@ -66,6 +66,21 @@ public:
 	virtual	void				SetCursor(ServerCursor* cursor);
 	virtual	void				SetCursorVisible(bool visible);
 	virtual	void				MoveCursorTo(float x, float y);
+
+	// overlay support
+	virtual overlay_token		AcquireOverlayChannel();
+	virtual void				ReleaseOverlayChannel(overlay_token token);
+
+	virtual status_t			GetOverlayRestrictions(const Overlay* overlay,
+									overlay_restrictions* restrictions);
+	virtual bool				CheckOverlayRestrictions(int32 width,
+									int32 height, color_space colorSpace);
+	virtual const overlay_buffer* AllocateOverlayBuffer(int32 width,
+									int32 height, color_space space);
+	virtual void				FreeOverlayBuffer(const overlay_buffer* buffer);
+
+	virtual void				ConfigureOverlay(Overlay* overlay);
+	virtual void				HideOverlay(Overlay* overlay);
  
 	// frame buffer access
 	virtual	RenderingBuffer*	FrontBuffer() const;

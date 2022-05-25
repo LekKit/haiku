@@ -16,6 +16,7 @@
 #include <new>
 #include <stdio.h>
 
+#include <InterfacePrivate.h>
 #include <ServerProtocol.h>
 #include "PortLink.h"
 #include "BBitmapBuffer.h"
@@ -832,6 +833,108 @@ VideoProducerHWInterface::_DrawCursor(IntRect area) const
 {
 	printf("VideoProducerHWInterface::_DrawCursor()\n");
 	//HWInterface::_DrawCursor(area);
+}
+
+
+// #pragma mark - overlays
+
+overlay_token
+VideoProducerHWInterface::AcquireOverlayChannel()
+{
+	printf("AcquireOverlayChannel\n");
+	return malloc(sizeof(void*));
+}
+
+
+void
+VideoProducerHWInterface::ReleaseOverlayChannel(overlay_token token)
+{
+	printf("ReleaseOverlayChannel(%p)\n", token);
+	if (token == NULL)
+		return;
+	free(token);
+}
+
+
+status_t
+VideoProducerHWInterface::GetOverlayRestrictions(const Overlay* overlay,
+	overlay_restrictions* restrictions)
+{
+	printf("GetOverlayRestrictions(%p)\n", overlay);
+	if (overlay == NULL || restrictions == NULL)
+		return B_BAD_VALUE;
+
+	memset(restrictions, 0, sizeof(overlay_restrictions));
+	restrictions->min_width_scale = 0.25;
+	restrictions->max_width_scale = 8.0;
+	restrictions->min_height_scale = 0.25;
+	restrictions->max_height_scale = 8.0;
+
+	return B_OK;
+}
+
+
+bool
+VideoProducerHWInterface::CheckOverlayRestrictions(int32 width, int32 height,
+	color_space colorSpace)
+{
+	printf("CheckOverlayRestrictions()\n");
+	return true;
+}
+
+
+const overlay_buffer*
+VideoProducerHWInterface::AllocateOverlayBuffer(int32 width, int32 height,
+	color_space space)
+{
+	printf("AllocateOverlayBuffer(%" B_PRId32 ", %" B_PRId32 ", %u)\n", width, height, space);
+	ObjectDeleter<overlay_buffer> buf = new(std::nothrow) overlay_buffer;
+	if (!buf.IsSet())
+		return NULL;
+
+	buf->space = space;
+	buf->width = width;
+	buf->height = height;
+	buf->bytes_per_row = BPrivate::get_bytes_per_row(space, width);
+	ArrayDeleter<uint8> buffer(new(std::nothrow) uint8[buf->bytes_per_row*buf->height]);
+	if (!buffer.IsSet())
+		return NULL;
+
+	buf->buffer = buffer.Detach();
+	buf->buffer_dma = NULL;
+
+	return buf.Detach();
+}
+
+
+void
+VideoProducerHWInterface::FreeOverlayBuffer(const overlay_buffer* buffer)
+{
+	printf("FreeOverlayBuffer(%p)\n", buffer);
+	ObjectDeleter<const overlay_buffer> buf(buffer);
+	ArrayDeleter<uint8> bufferData((uint8*)buf->buffer);
+}
+
+
+void
+VideoProducerHWInterface::ConfigureOverlay(Overlay* overlay)
+{
+#if 0
+	fAccConfigureOverlay(overlay->OverlayToken(), overlay->OverlayBuffer(),
+		overlay->OverlayWindow(), overlay->OverlayView());
+#endif
+}
+
+
+//#pragma mark -
+
+void
+VideoProducerHWInterface::HideOverlay(Overlay* overlay)
+{
+#if 0
+	fAccConfigureOverlay(overlay->OverlayToken(), overlay->OverlayBuffer(),
+		NULL, NULL);
+#endif
 }
 
 
