@@ -1,10 +1,11 @@
 #include "VideoProducerHWInterface.h"
 
 #include <VideoProducer.h>
-#include <TestProducerBase.h>
 #include <ClientThreadLink.h>
 #include <CompositeProducer.h>
 #include <CompositeProxy.h>
+#include <VideoBuffer.h>
+#include <VideoBufferBindSW.h>
 
 #include <Application.h>
 #include <Bitmap.h>
@@ -358,7 +359,7 @@ private:
 	friend class VideoProducerHWInterface;
 	VideoProducerHWInterface *fBase;
 
-	ArrayDeleter<MappedBuffer> fMappedBuffers;
+	SwapChainBindSW fSwapChainBind;
 
 	uint32 fValidPrevBufCnt;
 	BRegion fPrevDirty;
@@ -370,7 +371,7 @@ public:
 
 	void Connected(bool isActive) final;
 	void SwapChainChanged(bool isValid) final;
-	void Presented() final;
+	void Presented(const PresentedInfo &presentedInfo) final;
 	void MessageReceived(BMessage* msg) final;
 
 	void Produce(const BRegion &dirty);
@@ -394,15 +395,12 @@ void
 HWInterfaceProducer::Connected(bool isActive)
 {
 	if (isActive) {
-		SwapChainSpec spec;
-		BufferSpec buffers[2];
+		SwapChainSpec spec{};
 		spec.size = sizeof(SwapChainSpec);
 		spec.presentEffect = presentEffectCopy;
 		spec.bufferCnt = 2;
-		spec.bufferSpecs = buffers;
-		for (uint32 i = 0; i < spec.bufferCnt; i++) {
-			buffers[i].colorSpace = B_RGBA32;
-		}
+		spec.kind = bufferRefArea;
+		spec.colorSpace = B_RGBA32;
 		if (RequestSwapChain(spec) < B_OK) {
 			printf("[!] can't request swap chain\n");
 			exit(1);
@@ -418,25 +416,16 @@ HWInterfaceProducer::SwapChainChanged(bool isValid)
 {
 	printf("HWInterfaceProducer::SwapChainChanged(%d)\n", isValid);
 	VideoProducer::SwapChainChanged(isValid);
-	fMappedBuffers.Unset();
+	fSwapChainBind.Unset();
 	if (!isValid) {
 		return;
 	}
-	fMappedBuffers.SetTo(new MappedBuffer[GetSwapChain().bufferCnt]);
-	for (uint32 i = 0; i < GetSwapChain().bufferCnt; i++) {
-		auto &mappedBuffer = fMappedBuffers[i];
-		mappedBuffer.area = AreaCloner::Map(GetSwapChain().buffers[i].ref.area.id);
-		if (mappedBuffer.area->GetAddress() == NULL) {
-			printf("[!] mappedArea.adr == NULL\n");
-			return;
-		}
-		mappedBuffer.bits = mappedBuffer.area->GetAddress() + GetSwapChain().buffers[i].ref.offset;
-	}
+	fSwapChainBind.ConnectTo(GetSwapChain());
 }
 
 
 void
-HWInterfaceProducer::Presented()
+HWInterfaceProducer::Presented(const PresentedInfo &presentedInfo)
 {
 	//printf("HWInterfaceProducer::Presented()\n");
 	//release_sem_etc(fBase->fPresentSem.Get(), 0, B_RELEASE_ALL);
@@ -595,8 +584,8 @@ VideoProducerHWInterface::SetMode(const display_mode& mode)
 	printf("VideoProducerHWInterface::SetMode()\n");
 
 	BRect frame(0, 0, mode.virtual_width - 1, mode.virtual_height - 1);
-	fBackBuffer.SetTo(new VideoStreamsRenBuf(*fProducer->RenderBuffer(), fProducer->fMappedBuffers[fProducer->RenderBufferId()].bits));
-	fFrontBuffer.SetTo(new VideoStreamsRenBuf(*fProducer->RenderBuffer(), fProducer->fMappedBuffers[fProducer->RenderBufferId()].bits));
+	fBackBuffer.SetTo(new VideoStreamsRenBuf(*fProducer->RenderBuffer(), fProducer->fSwapChainBind.Buffers()[fProducer->RenderBufferId()].bits));
+	fFrontBuffer.SetTo(new VideoStreamsRenBuf(*fProducer->RenderBuffer(), fProducer->fSwapChainBind.Buffers()[fProducer->RenderBufferId()].bits));
 
 	_NotifyFrameBufferChanged();
 
