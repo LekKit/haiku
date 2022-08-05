@@ -21,6 +21,7 @@
 #include <ServerProtocol.h>
 #include "PortLink.h"
 #include "BBitmapBuffer.h"
+#include "AppKitPtrs.h"
 
 enum {
 	// DRM
@@ -508,17 +509,14 @@ VideoProducerHWInterface::VideoProducerHWInterface()
 	ClientThreadLink *threadLink = GetClientThreadLink(fRadeonGfxMsgr);
 	auto &link = threadLink->Link();
 
-	
 	BMessenger fCompositeProducerMsgr;
 	if (!FindCompositor(fCompositeProducerMsgr)) {
 		exit(1);
 	}
 	fCompositor.SetTo(new CompositeProxy(fCompositeProducerMsgr));
 
-	be_app->Lock();
 	fProducer.SetTo(new HWInterfaceProducer(this, "hwInterfaceProducer"));
-	be_app->AddHandler(fProducer.Get());
-	be_app->Unlock();
+	AppKitPtrs::LockedPtr(be_app)->AddHandler(fProducer.Get());
 
 	SurfaceUpdate surfaceInfo = {
 		.valid = (1 << surfaceFrame) | (1 << surfaceDrawMode),
@@ -956,10 +954,7 @@ VideoProducerHWInterface::InvalidateRegion(const BRegion& dirty)
 	//printf("VideoProducerHWInterface::InvalidateRegion()\n");
 	if (dirty.CountRects() == 0) return B_OK;
 
-	if (fProducer->LockLooper()) {
-		fProducer->Produce(dirty);
-		fProducer->UnlockLooper();
-	}
+	AppKitPtrs::ExternalPtr(fProducer.Get()).Lock()->Produce(dirty);
 
 	return B_OK;
 }
