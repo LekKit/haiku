@@ -411,7 +411,8 @@ virtio_device_read_device_config(virtio_device cookie, uint8 offset,
 		offset, bufferSize);
 
 	VirtioDevice* dev = (VirtioDevice*)cookie;
-	memcpy(buffer, (void*)(dev->fRegs->config + offset), bufferSize);
+	for (uint32 i = 0; i < bufferSize; i++)
+		static_cast<uint8*>(buffer)[i] = dev->fRegs->config[i + offset];
 
 	return B_OK;
 }
@@ -424,7 +425,9 @@ virtio_device_write_device_config(virtio_device cookie, uint8 offset,
 	TRACE("virtio_device_write_device_config(%p, %d, %" B_PRIuSIZE ")\n",
 		cookie, offset, bufferSize);
 	VirtioDevice* dev = (VirtioDevice*)cookie;
-	memcpy((void*)(dev->fRegs->config + offset), buffer, bufferSize);
+	for (uint32 i = 0; i < bufferSize; i++)
+		dev->fRegs->config[i + offset] = static_cast<const uint8*>(buffer)[i];
+
 	return B_OK;
 }
 
