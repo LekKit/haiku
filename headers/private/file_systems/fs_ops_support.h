@@ -21,7 +21,11 @@ next_dirent(struct dirent* dirent, size_t nameLength, size_t& bufferRemaining)
 	ASSERT(reclen <= bufferRemaining);
 	dirent->d_reclen = reclen;
 
+#if __GNUC__ < 3
+	const size_t roundedReclen = ROUNDUP(reclen, 4);
+#else
 	const size_t roundedReclen = ROUNDUP(reclen, alignof(struct dirent));
+#endif
 	if (roundedReclen >= bufferRemaining) {
 		bufferRemaining -= reclen;
 		return NULL;
