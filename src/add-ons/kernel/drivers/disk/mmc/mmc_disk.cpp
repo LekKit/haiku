@@ -391,85 +391,6 @@ mmc_block_free(void* cookie)
 
 
 static status_t
-mmc_block_read(void* cookie, off_t pos, void* buffer, size_t* _length)
-{
-	CALLED();
-	mmc_disk_handle* handle = (mmc_disk_handle*)cookie;
-
-	size_t length = *_length;
-
-	if (handle->info->geometry.bytes_per_sector == 0) {
-		status_t error = mmc_block_get_geometry(handle->info,
-			&handle->info->geometry);
-		if (error != B_OK) {
-			TRACE("Failed to get disk capacity");
-			return error;
-		}
-	}
-
-	// Do not allow reading past device end
-	if (pos >= handle->info->DeviceSize())
-		return B_BAD_VALUE;
-	if (pos + (off_t)length > handle->info->DeviceSize())
-		length = handle->info->DeviceSize() - pos;
-
-	IORequest request;
-	status_t status = request.Init(pos, (addr_t)buffer, length, false, 0);
-	if (status != B_OK)
-		return status;
-
-	status = handle->info->scheduler->ScheduleRequest(&request);
-	if (status != B_OK)
-		return status;
-
-	status = request.Wait(0, 0);
-	if (status == B_OK)
-		*_length = length;
-	return status;
-}
-
-
-static status_t
-mmc_block_write(void* cookie, off_t position, const void* buffer,
-	size_t* _length)
-{
-	CALLED();
-	mmc_disk_handle* handle = (mmc_disk_handle*)cookie;
-
-	size_t length = *_length;
-
-	if (handle->info->geometry.bytes_per_sector == 0) {
-		status_t error = mmc_block_get_geometry(handle->info,
-			&handle->info->geometry);
-		if (error != B_OK) {
-			TRACE("Failed to get disk capacity");
-			return error;
-		}
-	}
-
-	if (position >= handle->info->DeviceSize())
-		return B_BAD_VALUE;
-	if (position + (off_t)length > handle->info->DeviceSize())
-		length = handle->info->DeviceSize() - position;
-
-	IORequest request;
-	status_t status = request.Init(position, (addr_t)buffer, length, true, 0);
-	if (status != B_OK)
-		return status;
-
-	status = handle->info->scheduler->ScheduleRequest(&request);
-	if (status != B_OK)
-		return status;
-
-	status = request.Wait(0, 0);
-	if (status == B_OK)
-		*_length = length;
-
-	return status;
-}
-
-
-static status_t
 mmc_block_io(void* cookie, io_request* request)
 {
 	CALLED();
@@ -684,8 +605,8 @@ struct device_module_info sMMCBlockDevice = {
 	mmc_block_open,
 	mmc_block_close,
 	mmc_block_free,
-	mmc_block_read,
-	mmc_block_write,
+	NULL, // read
+	NULL, // write
 	mmc_block_io,
 	mmc_block_ioctl,
 
