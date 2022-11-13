@@ -14,6 +14,43 @@
 extern ArchPCIController* gArchPCI;
 
 
+//#pragma mark -
+
+static void
+pci_enable_io_interrupt(interrupt_source* src, int irq)
+{
+	// TODO
+}
+
+
+static void
+pci_disable_io_interrupt(interrupt_source* src, int irq)
+{
+	// TODO
+}
+
+
+static int32
+pci_assign_to_cpu(interrupt_source* src, int32 irq, int32 cpu)
+{
+	// Not yet supported.
+	return 0;
+}
+
+
+interrupt_source_vtable sPciInterruptSourceVtable = {
+	.enable_io_interrupt = pci_enable_io_interrupt,
+	.disable_io_interrupt = pci_disable_io_interrupt,
+	.assign_to_cpu = pci_assign_to_cpu,
+};
+
+interrupt_source sPciInterruptSource = {
+	.vt = &sPciInterruptSourceVtable
+};
+
+
+//#pragma mark -
+
 static int32
 msi_interrupt_handler(void* arg)
 {
@@ -56,19 +93,19 @@ PCIFU740::InitMSI(int32 msiIrq)
 	}
 
 	fMsiPhysAddr = pe.address;
-        dprintf("  fMsiPhysAddr: %#" B_PRIxADDR "\n", fMsiPhysAddr);
-        GetDbuRegs()->msiAddrLo = (uint32)fMsiPhysAddr;
-        GetDbuRegs()->msiAddrHi = (uint32)(fMsiPhysAddr >> 32);
-
-        GetDbuRegs()->msiIntr[0].enable = 0xffffffff;
-        GetDbuRegs()->msiIntr[0].mask = 0xffffffff;
+	dprintf("  fMsiPhysAddr: %#" B_PRIxADDR "\n", fMsiPhysAddr);
+	GetDbuRegs()->msiAddrLo = (uint32)fMsiPhysAddr;
+	GetDbuRegs()->msiAddrHi = (uint32)(fMsiPhysAddr >> 32);
+	
+	GetDbuRegs()->msiIntr[0].enable = 0xffffffff;
+	GetDbuRegs()->msiIntr[0].mask = 0xffffffff;
 
 	result = install_io_interrupt_handler(msiIrq, msi_interrupt_handler, NULL, 0);
 	if (result != B_OK) {
 		dprintf("  unable to attach MSI irq handler!\n");
 		return result;
 	}
-	result = allocate_io_interrupt_vectors(32, &fMsiStartIrq, INTERRUPT_TYPE_IRQ);
+	result = allocate_io_interrupt_vectors(32, &fMsiStartIrq, INTERRUPT_TYPE_IRQ, &sPciInterruptSource);
 
 	if (result != B_OK) {
 		dprintf("  unable to attach MSI irq handler!\n");
