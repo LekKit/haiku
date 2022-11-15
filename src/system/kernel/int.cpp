@@ -62,6 +62,7 @@ struct io_vector {
 	int32				load;
 
 	irq_assignment*		assigned_cpu;
+	InterruptSource*	source;
 
 #if DEBUG_INTERRUPTS
 	int64				handled_count;
@@ -171,6 +172,33 @@ dump_int_load(int argc, char** argv)
 //	#pragma mark - private kernel API
 
 
+#ifndef __riscv
+
+class ArchInterruptSource: public InterruptSource {
+public:
+	void EnableIoInterrupt(int irq) final {arch_int_enable_io_interrupt(irq);}
+	void DisableIoInterrupt(int irq) final {arch_int_disable_io_interrupt(irq);}
+	void ConfigureIoInterrupt(int irq, uint32 config) final {arch_int_configure_io_interrupt(irq, config);}
+	int32 AssignToCpu(int32 irq, int32 cpu) final {return arch_int_assign_to_cpu(irq, cpu);}
+} sArchInterruptSource;
+
+
+status_t
+reserve_io_interrupt_vectors(long count, long startVector, enum interrupt_type type)
+{
+	return reserve_io_interrupt_vectors(count, startVector, type, &sArchInterruptSource);
+}
+
+
+status_t
+allocate_io_interrupt_vectors(long count, long *startVector, enum interrupt_type type)
+{
+	return allocate_io_interrupt_vectors(count, startVector, type, &sArchInterruptSource);
+}
+
+#endif
+
+
 bool
 interrupts_enabled(void)
 {
@@ -182,6 +210,10 @@ status_t
 int_init(kernel_args* args)
 {
 	TRACE(("init_int_handlers: entry\n"));
+
+	#ifndef __riscv
+	new(&sArchInterruptSource) ArchInterruptSource();
+	#endif
 
 	return arch_int_init(args);
 }
@@ -340,7 +372,7 @@ int_io_interrupt_handler(int vector, bool levelTriggered)
 					|| sVectors[vector].handler_list->next == NULL) {
 					// this interrupt vector is not shared, disable it
 					sVectors[vector].enable_count = -100;
-					arch_int_disable_io_interrupt(vector);
+					sVectors[vector].source->DisableIoInterrupt(vector);
 					dprintf("Disabling unhandled io interrupt %d\n", vector);
 				} else {
 					// this is a shared interrupt vector, we cannot just disable it
@@ -467,7 +499,7 @@ install_io_interrupt_handler(long vector, interrupt_handler handler, void *data,
 		&& sVectors[vector].assigned_cpu->cpu == -1) {
 
 		int32 cpuID = assign_cpu();
-		cpuID = arch_int_assign_to_cpu(vector, cpuID);
+		cpuID = sVectors[vector].source->AssignToCpu(vector, cpuID);
 		sVectors[vector].assigned_cpu->cpu = cpuID;
 
 		cpu_ent* cpu = &gCPU[cpuID];
@@ -501,7 +533,7 @@ install_io_interrupt_handler(long vector, interrupt_handler handler, void *data,
 	// whether the interrupt should be enabled or not
 	if (io->use_enable_counter) {
 		if (sVectors[vector].enable_count++ == 0)
-			arch_int_enable_io_interrupt(vector);
+			sVectors[vector].source->EnableIoInterrupt(vector);
 	}
 
 	// If B_NO_LOCK_VECTOR is specified this is a vector that is not supposed
@@ -551,8 +583,9 @@ remove_io_interrupt_handler(long vector, interrupt_handler handler, void *data)
 				sVectors[vector].handler_list = io->next;
 
 			// Check if we need to disable the interrupt
-			if (io->use_enable_counter && --sVectors[vector].enable_count == 0)
-				arch_int_disable_io_interrupt(vector);
+			if (io->use_enable_counter && --sVectors[vector].enable_count == 0) {
+				sVectors[vector].source->DisableIoInterrupt(vector);
+			}
 
 			status = B_OK;
 			break;
@@ -607,7 +640,8 @@ remove_io_interrupt_handler(long vector, interrupt_handler handler, void *data)
 	vectors using allocate_io_interrupt_vectors() instead.
 */
 status_t
-reserve_io_interrupt_vectors(long count, long startVector, interrupt_type type)
+reserve_io_interrupt_vectors(long count, long startVector, interrupt_type type,
+	interrupt_source* source)
 {
 	MutexLocker locker(&sIOInterruptVectorAllocationLock);
 
@@ -623,6 +657,7 @@ reserve_io_interrupt_vectors(long count, long startVector, interrupt_type type)
 		sVectors[startVector + i].type = type;
 		sVectors[startVector + i].assigned_cpu
 			= &sVectorCPUAssignments[startVector + i];
+		sVectors[startVector + i].source = (InterruptSource*)source;
 		sVectorCPUAssignments[startVector + i].count = 1;
 		sAllocatedIOInterruptVectors[startVector + i] = true;
 	}
@@ -639,7 +674,7 @@ reserve_io_interrupt_vectors(long count, long startVector, interrupt_type type)
 */
 status_t
 allocate_io_interrupt_vectors(long count, long *startVector,
-	interrupt_type type)
+	interrupt_type type, interrupt_source* source)
 {
 	MutexLocker locker(&sIOInterruptVectorAllocationLock);
 
@@ -671,6 +706,7 @@ allocate_io_interrupt_vectors(long count, long *startVector,
 	for (long i = 0; i < count; i++) {
 		sVectors[vector + i].type = type;
 		sVectors[vector + i].assigned_cpu = &sVectorCPUAssignments[vector];
+		sVectors[vector + i].source = (InterruptSource*)source;
 		sAllocatedIOInterruptVectors[vector + i] = true;
 	}
 
@@ -742,7 +778,7 @@ void assign_io_interrupt_to_cpu(long vector, int32 newCPU)
 	list_remove_item(&cpu->irqs, sVectors[vector].assigned_cpu);
 	locker.Unlock();
 
-	newCPU = arch_int_assign_to_cpu(vector, newCPU);
+	newCPU = sVectors[vector].source->AssignToCpu(vector, newCPU);
 	sVectors[vector].assigned_cpu->cpu = newCPU;
 	cpu = &gCPU[newCPU];
 	locker.SetTo(cpu->irqs_lock, false);

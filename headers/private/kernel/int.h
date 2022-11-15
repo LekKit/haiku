@@ -10,6 +10,20 @@
 
 
 #include <KernelExport.h>
+
+#ifdef __cplusplus
+
+// ABI compatible C++ interface for struct interrupt_source
+class InterruptSource {
+public:
+	virtual void EnableIoInterrupt(int irq) = 0;
+	virtual void DisableIoInterrupt(int irq) = 0;
+	virtual void ConfigureIoInterrupt(int irq, uint32 config) = 0;
+	virtual int32 AssignToCpu(int32 irq, int32 cpu) = 0;
+};
+
+#endif
+
 #include <arch/int.h>
 
 #include <util/list.h>
@@ -41,6 +55,17 @@ struct irq_assignment {
 	int32		load;
 	int32		cpu;
 };
+
+typedef struct interrupt_source {
+	struct interrupt_source_vtable* vt;
+} interrupt_source;
+
+typedef struct interrupt_source_vtable {
+	void (*enable_io_interrupt)(interrupt_source* src, int irq);
+	void (*disable_io_interrupt)(interrupt_source* src, int irq);
+	void (*configure_io_interrupt)(interrupt_source* src, int irq, uint32 config);
+	int32 (*assign_to_cpu)(interrupt_source* src, int32 irq, int32 cpu);
+} interrupt_source_vtable;
 
 
 #ifdef __cplusplus
@@ -77,12 +102,41 @@ are_interrupts_enabled(void)
 #define restore_interrupts(status)	arch_int_restore_interrupts(status)
 
 
+#ifdef __cplusplus
+extern "C++" {
+
 status_t reserve_io_interrupt_vectors(long count, long startVector,
-	enum interrupt_type type);
+	enum interrupt_type type, interrupt_source* source);
 status_t allocate_io_interrupt_vectors(long count, long *startVector,
-	enum interrupt_type type);
+	enum interrupt_type type, interrupt_source* source);
 void free_io_interrupt_vectors(long count, long startVector);
 
 void assign_io_interrupt_to_cpu(long vector, int32 cpu);
+
+#ifndef __riscv
+status_t reserve_io_interrupt_vectors(long count, long startVector,
+	enum interrupt_type type);
+
+status_t allocate_io_interrupt_vectors(long count, long *startVector,
+	enum interrupt_type type);
+#endif
+
+inline status_t
+reserve_io_interrupt_vectors(long count, long startVector,
+	enum interrupt_type type, InterruptSource* source)
+{
+	return reserve_io_interrupt_vectors(count, startVector, type, (interrupt_source*)source);
+}
+
+
+inline status_t
+allocate_io_interrupt_vectors(long count, long *startVector,
+	enum interrupt_type type, InterruptSource* source)
+{
+	return allocate_io_interrupt_vectors(count, startVector, type, (interrupt_source*)source);
+}
+
+}
+#endif
 
 #endif /* _KERNEL_INT_H */

@@ -61,7 +61,6 @@ virtual status_t				InitMSI(int32 irq) = 0;
 virtual int32					AllocateMSIIrq() = 0;
 virtual void					FreeMSIIrq(int32 irq) = 0;
 virtual	void					InitDeviceMSI(uint8 bus, uint8 device, uint8 function) = 0;
-virtual int32					HandleMSIIrq(void* arg) = 0;
 
 virtual	addr_t					ConfigAddress(uint8 bus, uint8 device, uint8 function,
 									uint16 offset) = 0;
@@ -73,7 +72,6 @@ virtual bool					AllocateBar() = 0;
 									uint8& function);
 
 		addr_t					GetIoRegs() { return fIoBase; };
-	volatile PciDbiRegs*				GetDbuRegs();
 
 		RegisterRange*			GetRegisterRange(int range);
 		void					SetRegisterRange(int kind, phys_addr_t parentBase,

@@ -27,9 +27,6 @@ ArchPCIController::ArchPCIController()
 	fConfigPhysBase(0),
 	fConfigBase(0),
 	fConfigSize(0),
-	fDbiPhysBase(0),
-	fDbiBase(0),
-	fDbiSize(0),
 	fIoBase(0),
 	fInterruptMapLen(0)
 {
@@ -57,17 +54,6 @@ ArchPCIController::DecodePciAddress(uint32_t adr, uint8& bus, uint8& device, uin
 	bus = adr / (1 << 16) % (1 << 8);
 	device = adr / (1 << 11) % (1 << 5);
 	function = adr / (1 << 8) % (1 << 3);
-}
-
-
-volatile PciDbiRegs*
-ArchPCIController::GetDbuRegs()
-{
-	if (fDbiBase == 0) {
-		return NULL;
-	}
-
-	return (PciDbiRegs*)fDbiBase;
 }
 
 

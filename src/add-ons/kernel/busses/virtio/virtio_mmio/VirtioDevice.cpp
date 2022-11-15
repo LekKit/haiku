@@ -252,6 +252,7 @@ VirtioIrqHandler::Handle(void* data)
 {
 	// TRACE("VirtioIrqHandler::Handle(%p)\n", data);
 	VirtioDevice* dev = (VirtioDevice*)data;
+	panic("VirtioIrqHandler::Handle");
 
 	if ((kVirtioIntQueue & dev->fRegs->interruptStatus) != 0) {
 		for (int32 i = 0; i < dev->fQueueCnt; i++) {
