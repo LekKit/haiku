@@ -203,7 +203,7 @@ AllocRegsForDevice(uint8 bus, uint8 device, uint8 function)
 {
 	dprintf("AllocRegsForDevice(bus: %d, device: %d, function: %d)\n", bus, device, function);
 
-	bool allocBars = false;
+	bool allocBars = true;
 
 	uint32 vendorID = 0, deviceID = 0;
 	read_pci_config(NULL, bus, device, function, PCI_vendor_id, 2, &vendorID);
@@ -365,8 +365,9 @@ AllocRegs()
 {
 	dprintf("AllocRegs()\n");
 	// TODO: improve enumeration
-	for (int j = 0; j < 8; j++) {
+	for (int j = 0; j < /*8*/ 1; j++) {
 		for (int i = 0; i < 32; i++) {
+			//dprintf("%d, %d\n", j, i);
 			uint32 vendorID = 0;
 			status_t res = read_pci_config(NULL, j, i, 0, PCI_vendor_id, 2, &vendorID);
 			if (res >= B_OK && vendorID != 0xffff) {
@@ -473,5 +474,5 @@ pci_init()
 		}
 	}
 
-	if (false) AllocRegs();
+	if (true) AllocRegs();
 }
