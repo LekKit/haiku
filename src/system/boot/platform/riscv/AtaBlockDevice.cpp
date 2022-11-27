@@ -13,7 +13,7 @@
 
 
 enum {
-	ataBaseAdr = 0x59000000,
+	ataBaseAdr = 0x40000000,
 };
 
 static void port_byte_out(uint16_t reg, uint8_t val)

@@ -51,7 +51,7 @@ static void MmioOp(uint64 offset, uint32 &val, uint32 size, bool isWrite)
 	//dprintf("MmioOp(%#" B_PRIx64 ", %" B_PRIu32 ", %d)\n", offset, size, isWrite);
 	
 	if (sMappedRegs == 0) {
-		phys_addr_t regs = 0x59000000;
+		phys_addr_t regs = 0x40000000;
 		size_t regsSize = 0x3000;
 		sRegsArea = map_physical_memory("ATA MMIO", regs, regsSize,
 			B_ANY_KERNEL_ADDRESS, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA,

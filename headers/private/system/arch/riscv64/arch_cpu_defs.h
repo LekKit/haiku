@@ -77,9 +77,6 @@ struct SstatusReg {
 		};
 		uint64 val;
 	};
-
-	SstatusReg() {}
-	SstatusReg(uint64 val): val(val) {}
 };
 
 enum {
@@ -206,6 +203,13 @@ static B_ALWAYS_INLINE uint64 Sstatus() {
 	uint64 x; asm volatile("csrr %0, sstatus" : "=r" (x)); return x;}
 static B_ALWAYS_INLINE void SetSstatus(uint64 x) {
 	asm volatile("csrw sstatus, %0" : : "r" (x));}
+static B_ALWAYS_INLINE void SetBitsSstatus(uint64 x) {
+	asm volatile("csrs sstatus, %0" : : "r" (x));}
+static B_ALWAYS_INLINE uint64 GetAndClearBitsSstatus(uint64 x) {
+	uint64 res;
+	asm volatile("csrrc %0, sstatus, %1" : "=r" (res) : "r" (x));
+	return res;
+}
 
 // exception program counter
 static B_ALWAYS_INLINE uint64 Mepc() {
@@ -222,6 +226,10 @@ static B_ALWAYS_INLINE uint64 Mip() {
 	uint64 x; asm volatile("csrr %0, mip" : "=r" (x)); return x;}
 static B_ALWAYS_INLINE void SetMip(uint64 x) {
 	asm volatile("csrw mip, %0" : : "r" (x));}
+static B_ALWAYS_INLINE void SetBitsMip(uint64 x) {
+	asm volatile("csrs mip, %0" : : "r" (x));}
+static B_ALWAYS_INLINE void ClearBitsMip(uint64 x) {
+	asm volatile("csrc mip, %0" : : "r" (x));}
 static B_ALWAYS_INLINE uint64 Sip() {
 	uint64 x; asm volatile("csrr %0, sip" : "=r" (x)); return x;}
 static B_ALWAYS_INLINE void SetSip(uint64 x) {
@@ -232,10 +240,18 @@ static B_ALWAYS_INLINE uint64 Sie() {
 	uint64 x; asm volatile("csrr %0, sie" : "=r" (x)); return x;}
 static B_ALWAYS_INLINE void SetSie(uint64 x) {
 	asm volatile("csrw sie, %0" : : "r" (x));}
+static B_ALWAYS_INLINE void SetBitsSie(uint64 x) {
+	asm volatile("csrs sie, %0" : : "r" (x));}
+static B_ALWAYS_INLINE void ClearBitsSie(uint64 x) {
+	asm volatile("csrc sie, %0" : : "r" (x));}
 static B_ALWAYS_INLINE uint64 Mie() {
 	uint64 x; asm volatile("csrr %0, mie" : "=r" (x)); return x;}
 static B_ALWAYS_INLINE void SetMie(uint64 x) {
 	asm volatile("csrw mie, %0" : : "r" (x));}
+static B_ALWAYS_INLINE void SetBitsMie(uint64 x) {
+	asm volatile("csrs mie, %0" : : "r" (x));}
+static B_ALWAYS_INLINE void ClearBitsMie(uint64 x) {
+	asm volatile("csrc mie, %0" : : "r" (x));}
 
 // exception delegation
 static B_ALWAYS_INLINE uint64 Medeleg() {

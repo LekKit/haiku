@@ -27,7 +27,13 @@ struct NvmeRegs {
 	uint32 unknown1;
 	uint32 ctrlStatus;
 	uint32 unknown2;
-	uint32 adminQueueAttrs;
+	union AdminQueueAttrs {
+		struct {
+			uint16 submQueueLen;
+			uint16 complQueueLen;
+		};
+		uint32 val;
+	} adminQueueAttrs;
 	uint32 adminSubmQueueAdrLo;
 	uint32 adminSubmQueueAdrHi;
 	uint32 adminComplQueueAdrLo;
@@ -116,17 +122,25 @@ private:
 
 		CObjectDeleter<NvmeSubmissionPacket, void, FreeSubm> submArray;
 		CObjectDeleter<NvmeCompletionPacket, void, FreeCompl> complArray;
-		size_t submLen{};
-		size_t complLen{};
-		uint32 submHead{};
+		uint16 submLen{};
+		uint16 complLen{};
+		uint32 submHead{}, submTail{}, submPendingTail{};
+		uint32 complHead{};
 
 		status_t Init();
+	};
+	
+	enum {
+		queueIdAdmin = 0,
+		queueIdIo = 1,
 	};
 
 	volatile NvmeRegs* fRegs{};
 	off_t fSize{};
-	Queue fAdminQueue;
-	Queue fQueue;
+	Queue fQueues[2];
+	
+	NvmeSubmissionPacket *BeginSubmission(uint32 queueId);
+	void CommitSubmissions(uint32 queueId);
 };
 
 

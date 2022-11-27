@@ -18,7 +18,7 @@ SetLoHi(vuint32 &lo, vuint32 &hi, uint64 val)
 
 
 static uint64
-GetLoHi(const vuint32 &lo, const vuint32 &hi)
+GetLoHi(uint32 lo, uint32 hi)
 {
 	return (uint64)lo + (((uint64)hi) << 32);
 }
@@ -54,25 +54,28 @@ status_t
 NvmeBlockDevice::Init()
 {
 	dprintf("NvmeBlockDevice::Init()\n");
-	CHECK_RET(fAdminQueue.Init());
-	CHECK_RET(fQueue.Init());
-	fRegs->adminQueueAttrs = fAdminQueue.submLen | (fAdminQueue.complLen << 16);
-	SetLoHi(fRegs->adminSubmQueueAdrLo, fRegs->adminSubmQueueAdrHi, (addr_t)fAdminQueue.submArray.Get());
-	SetLoHi(fRegs->adminComplQueueAdrLo, fRegs->adminComplQueueAdrHi, (addr_t)fAdminQueue.complArray.Get());
+	CHECK_RET(fQueues[0].Init());
+	CHECK_RET(fQueues[1].Init());
+	fRegs->adminQueueAttrs.val = NvmeRegs::AdminQueueAttrs{
+		.submQueueLen = fQueues[0].submLen,
+		.complQueueLen = fQueues[0].complLen
+	}.val;
+	SetLoHi(fRegs->adminSubmQueueAdrLo, fRegs->adminSubmQueueAdrHi, (addr_t)fQueues[0].submArray.Get());
+	SetLoHi(fRegs->adminComplQueueAdrLo, fRegs->adminComplQueueAdrHi, (addr_t)fQueues[0].complArray.Get());
 
-	NvmeSubmissionPacket& packet = fAdminQueue.submArray.Get()[fAdminQueue.submHead];
+	NvmeSubmissionPacket& packet = fQueues[0].submArray.Get()[fQueues[0].submHead];
 	packet = {
 		.opcode = nvmeAdminOpCreateSubmQueue
 	};
 
-	fAdminQueue.submHead = (fAdminQueue.submHead + 1) & (fAdminQueue.submLen - 1);
+	fQueues[0].submHead = (fQueues[0].submHead + 1) & (fQueues[0].submLen - 1);
 
 	dprintf("  fRegs->cap1: %#" B_PRIx32 "\n", fRegs->cap1);
 	dprintf("  fRegs->cap2: %#" B_PRIx32 "\n", fRegs->cap2);
 	dprintf("  fRegs->version: %#" B_PRIx32 "\n", fRegs->version);
 	dprintf("  fRegs->adminSubmQueue: %#" B_PRIx64 "\n", GetLoHi(fRegs->adminSubmQueueAdrLo, fRegs->adminSubmQueueAdrHi));
 	dprintf("  fRegs->adminComplQueue: %#" B_PRIx64 "\n", GetLoHi(fRegs->adminComplQueueAdrLo, fRegs->adminComplQueueAdrHi));
-	dprintf("  fRegs->adminQueueAttrs: %" B_PRIu16 ", %" B_PRIu16 "\n", (uint16)fRegs->adminQueueAttrs, (uint16)(fRegs->adminQueueAttrs >> 16));
+	dprintf("  fRegs->adminQueueAttrs: %" B_PRIu16 ", %" B_PRIu16 "\n", fRegs->adminQueueAttrs.submQueueLen, fRegs->adminQueueAttrs.complQueueLen);
 	return B_OK;
 }
 
